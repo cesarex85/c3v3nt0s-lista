@@ -16,7 +16,6 @@ def generar_m3u():
 
     lineas = contenido.splitlines()
     salida = ["#EXTM3U\n"]
-    canales_vistos = set()
     total = 0
 
     i = 0
@@ -37,8 +36,7 @@ def generar_m3u():
                     break
                 j += 1
 
-            if enlace.startswith("acestream://") and enlace not in canales_vistos:
-                canales_vistos.add(enlace)
+            if enlace.startswith("acestream://"):
                 salida.append(meta + "\n")
                 salida.append(enlace + "\n")
                 total += 1
@@ -48,7 +46,7 @@ def generar_m3u():
     with open(ARCHIVO_SALIDA, "w", encoding="utf-8") as f:
         f.writelines(salida)
 
-    print(f"Listo: se generaron {total} canales únicos en {ARCHIVO_SALIDA}.")
+    print(f"Listo: se generaron {total} eventos 'acestream://' en {ARCHIVO_SALIDA}.")
 
 
 if __name__ == "__main__":
