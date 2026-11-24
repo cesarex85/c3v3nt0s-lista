@@ -1,14 +1,41 @@
+from datetime import datetime
+import hashlib
 import os
 import requests
 
 URL_ORIGEN = os.environ.get("URL_ORIGEN", "").strip()
-ARCHIVO_SALIDA = "c3v3nt0s.m3u"
+PALABRA_CLAVE = os.environ.get("PALABRA_CLAVE", "").strip()
 PREFIJO_HTTP = "http://127.0.0.1:6878/ace/getstream?id="
+INICIALES_DIA = {
+    0: "L",  # Lunes
+    1: "M",  # Martes
+    2: "M",  # Miércoles
+    3: "J",  # Jueves
+    4: "V",  # Viernes
+    5: "S",  # Sábado
+    6: "D",  # Domingo
+}
+
+
+def obtener_nombre_archivo() -> str:
+    if not PALABRA_CLAVE:
+        raise ValueError("Falta configurar la variable de entorno PALABRA_CLAVE.")
+
+    ahora = datetime.now()
+    inicial_dia = INICIALES_DIA[ahora.weekday()]
+    ddmmyy = ahora.strftime("%d%m%y")
+
+    texto_base = f"{PALABRA_CLAVE}{inicial_dia}{ddmmyy}"
+    hash_corto = hashlib.sha256(texto_base.encode("utf-8")).hexdigest()[:12]
+
+    return f"{hash_corto}.m3u"
 
 
 def generar_m3u():
     if not URL_ORIGEN:
         raise ValueError("Falta configurar la variable de entorno URL_ORIGEN.")
+
+    archivo_salida = obtener_nombre_archivo()
 
     print("Descargando lista origen...")
     response = requests.get(URL_ORIGEN, timeout=20)
@@ -46,10 +73,10 @@ def generar_m3u():
 
         i += 1
 
-    with open(ARCHIVO_SALIDA, "w", encoding="utf-8") as f:
+    with open(archivo_salida, "w", encoding="utf-8") as f:
         f.writelines(salida)
 
-    print(f"Listo: se generaron {total} eventos HTTP (?id=) en {ARCHIVO_SALIDA}.")
+    print(f"Listo: se generaron {total} eventos HTTP (?id=) en {archivo_salida}.")
 
 
 if __name__ == "__main__":
