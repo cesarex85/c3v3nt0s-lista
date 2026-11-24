@@ -3,6 +3,7 @@ import requests
 
 URL_ORIGEN = os.environ.get("URL_ORIGEN", "").strip()
 ARCHIVO_SALIDA = "c3v3nt0s.m3u"
+PREFIJO_HTTP = "http://127.0.0.1:6878/ace/getstream?id="
 
 
 def generar_m3u():
@@ -37,8 +38,10 @@ def generar_m3u():
                 j += 1
 
             if enlace.startswith("acestream://"):
+                hash_id = enlace.replace("acestream://", "").strip()
+                enlace_http = f"{PREFIJO_HTTP}{hash_id}"
                 salida.append(meta + "\n")
-                salida.append(enlace + "\n")
+                salida.append(enlace_http + "\n")
                 total += 1
 
         i += 1
@@ -46,7 +49,7 @@ def generar_m3u():
     with open(ARCHIVO_SALIDA, "w", encoding="utf-8") as f:
         f.writelines(salida)
 
-    print(f"Listo: se generaron {total} eventos 'acestream://' en {ARCHIVO_SALIDA}.")
+    print(f"Listo: se generaron {total} eventos HTTP (?id=) en {ARCHIVO_SALIDA}.")
 
 
 if __name__ == "__main__":
