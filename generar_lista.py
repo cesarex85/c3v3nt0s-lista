@@ -26,9 +26,9 @@ def obtener_nombre_archivo() -> str:
     ddmmyy = ahora.strftime("%d%m%y")
 
     texto_base = f"{PALABRA_CLAVE}{inicial_dia}{ddmmyy}"
-    hash_sha256 = hashlib.sha256(texto_base.encode("utf-8")).hexdigest()
+    hash_corto = hashlib.sha256(texto_base.encode("utf-8")).hexdigest()[:12]
 
-    return f"{hash_sha256}.m3u"
+    return f"{hash_corto}.m3u"
 
 
 def generar_m3u():
