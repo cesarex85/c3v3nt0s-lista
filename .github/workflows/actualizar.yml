@@ -28,6 +28,7 @@ jobs:
       - name: Ejecutar script de limpieza
         env:
           URL_ORIGEN: ${{ secrets.URL_ORIGEN }}
+          PALABRA_CLAVE: ${{ secrets.PALABRA_CLAVE }}
         run: python generar_lista.py
 
       - name: Publicar c3v3nt0s.m3u en rama gh-pages
