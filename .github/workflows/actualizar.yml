@@ -28,6 +28,7 @@ jobs:
       - name: Ejecutar script de limpieza
         env:
           URL_ORIGEN: ${{ secrets.URL_ORIGEN }}
+          URL_PETICIONES: ${{ secrets.URL_PETICIONES }}
           PALABRA_CLAVE: ${{ secrets.PALABRA_CLAVE }}
         run: python generar_lista.py
 
