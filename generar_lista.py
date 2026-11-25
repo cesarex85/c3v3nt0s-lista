@@ -9,7 +9,7 @@ PREFIJO_HTTP = "http://127.0.0.1:6878/ace/getstream?id="
 INICIALES_DIA = {
     0: "L",  # Lunes
     1: "M",  # Martes
-    2: "M",  # Miércoles
+    2: "X",  # Miércoles
     3: "J",  # Jueves
     4: "V",  # Viernes
     5: "S",  # Sábado
