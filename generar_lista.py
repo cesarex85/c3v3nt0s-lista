@@ -8,7 +8,10 @@ import requests
 URL_ORIGEN = os.environ.get("URL_ORIGEN", "").strip()
 URL_PETICIONES = os.environ.get("URL_PETICIONES", "").strip()
 PALABRA_CLAVE = os.environ.get("PALABRA_CLAVE", "").strip()
+
 PREFIJO_HTTP = "http://127.0.0.1:6878/ace/getstream?id="
+GRUPO_EVENTOS = "EVENTOS_HOY"
+
 INICIALES_DIA = {
     0: "L",  # Lunes
     1: "M",  # Martes
@@ -18,8 +21,10 @@ INICIALES_DIA = {
     5: "S",  # Sábado
     6: "D",  # Domingo
 }
+
 HASH_REGEX = re.compile(r"^[a-fA-F0-9]{40}$")
 URL_TVG_REGEX = re.compile(r'url-tvg="([^"]+)"')
+EVENTO_KEYWORD_REGEX = re.compile(r"\b(evento|eventos|eventual)\b", re.IGNORECASE)
 
 
 def obtener_nombre_archivo() -> str:
@@ -42,13 +47,23 @@ def normalizar_a_http_ace(enlace: str) -> str | None:
         return None
 
     if enlace.startswith("acestream://"):
-        hash_id = enlace.replace("acestream://", "", 1).strip()
+        hash_id = (
+            enlace.replace("acestream://", "", 1)
+            .split("?")[0]
+            .split("#")[0]
+            .strip()
+        )
         if HASH_REGEX.match(hash_id):
             return f"{PREFIJO_HTTP}{hash_id}"
         return None
 
     if enlace.startswith(PREFIJO_HTTP):
-        hash_id = enlace.replace(PREFIJO_HTTP, "", 1).split("&")[0].strip()
+        hash_id = (
+            enlace.replace(PREFIJO_HTTP, "", 1)
+            .split("&")[0]
+            .split("?")[0]
+            .strip()
+        )
         if HASH_REGEX.match(hash_id):
             return f"{PREFIJO_HTTP}{hash_id}"
         return None
@@ -75,11 +90,31 @@ def extraer_url_tvg(contenido: str) -> list[str]:
     return urls
 
 
+def asignar_grupo_evento(linea_extinf: str, forzar_evento: bool = False) -> str:
+    if not forzar_evento and not EVENTO_KEYWORD_REGEX.search(linea_extinf):
+        return linea_extinf
+
+    if 'group-title="' in linea_extinf:
+        return re.sub(
+            r'group-title="[^"]*"',
+            f'group-title="{GRUPO_EVENTOS}"',
+            linea_extinf,
+            count=1,
+        )
+
+    if "," in linea_extinf:
+        metadatos, nombre = linea_extinf.split(",", 1)
+        return f'{metadatos} group-title="{GRUPO_EVENTOS}",{nombre}'
+
+    return f'{linea_extinf} group-title="{GRUPO_EVENTOS}"'
+
+
 def extraer_elementos_m3u(
     contenido: str,
     url_base: str,
     visitadas: set[str],
     epg_acumulado: list[str],
+    forzar_evento: bool = False,
     profundidad: int = 0,
     max_profundidad: int = 2,
 ) -> list[tuple[str, str]]:
@@ -104,7 +139,8 @@ def extraer_elementos_m3u(
             continue
 
         if linea.startswith("#EXTGRP"):
-            elementos.append(("GRP", linea))
+            if not forzar_evento:
+                elementos.append(("GRP", linea))
             i += 1
             continue
 
@@ -129,7 +165,8 @@ def extraer_elementos_m3u(
             if objetivo:
                 ace_http = normalizar_a_http_ace(objetivo)
                 if ace_http:
-                    elementos.append(("CANAL", f"{meta}\n{ace_http}"))
+                    meta_final = asignar_grupo_evento(meta, forzar_evento=forzar_evento)
+                    elementos.append(("CANAL", f"{meta_final}\n{ace_http}"))
                 elif (
                     objetivo.startswith(("http://", "https://"))
                     and es_url_m3u(objetivo)
@@ -147,6 +184,7 @@ def extraer_elementos_m3u(
                                 url_sublista,
                                 visitadas,
                                 epg_acumulado,
+                                forzar_evento=forzar_evento,
                                 profundidad=profundidad + 1,
                                 max_profundidad=max_profundidad,
                             )
@@ -159,16 +197,13 @@ def extraer_elementos_m3u(
     return elementos
 
 
-def obtener_fuentes() -> list[str]:
-    fuentes: list[str] = []
-    for url in (URL_PETICIONES, URL_ORIGEN):
-        if url and url not in fuentes:
-            fuentes.append(url)
-    return fuentes
-
-
 def generar_m3u():
-    fuentes = obtener_fuentes()
+    fuentes: list[tuple[str, bool]] = []
+    if URL_PETICIONES:
+        fuentes.append((URL_PETICIONES, False))
+    if URL_ORIGEN and URL_ORIGEN != URL_PETICIONES:
+        fuentes.append((URL_ORIGEN, True))
+
     if not fuentes:
         raise ValueError(
             "Falta configurar al menos una variable de entorno: URL_PETICIONES o URL_ORIGEN."
@@ -179,17 +214,21 @@ def generar_m3u():
     epg_acumulado: list[str] = []
     elementos: list[tuple[str, str]] = []
 
-    for url_fuente in fuentes:
+    for url_fuente, es_fuente_eventos in fuentes:
         if url_fuente in visitadas:
             continue
         visitadas.add(url_fuente)
-        print(f"Descargando fuente origen: {url_fuente}")
+        print(f"Descargando fuente: {url_fuente}")
         try:
             response = requests.get(url_fuente, timeout=25)
             response.raise_for_status()
             elementos.extend(
                 extraer_elementos_m3u(
-                    response.text, url_fuente, visitadas, epg_acumulado
+                    response.text,
+                    url_fuente,
+                    visitadas,
+                    epg_acumulado,
+                    forzar_evento=es_fuente_eventos,
                 )
             )
         except Exception as exc:
