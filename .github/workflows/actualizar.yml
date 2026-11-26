@@ -2,7 +2,7 @@ name: Generar y publicar c3v3nt0s.m3u
 
 on:
   schedule:
-    - cron: "0 10 * * *"
+    - cron: "0 8 * * *"
   workflow_dispatch:
 
 permissions:
